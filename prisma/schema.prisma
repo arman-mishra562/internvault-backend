@@ -30,4 +30,52 @@ model User {
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // Relations
+  applications      Application[]
+}
+
+model Application {
+  id            String   @id @default(cuid())
+  fullName      String
+  contactEmail  String
+  whatsappNumber String
+  domain        String
+  price         Float
+  currency      String
+  userId        String
+  status        ApplicationStatus @default(PENDING)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model PricingPlan {
+  id       String @id @default(cuid())
+  duration Int    // in months (1, 2, 3, 4, 5, 6)
+  price    Float
+  currency String
+  country  String? // ISO country code (e.g., 'US', 'IN', 'GB')
+  isActive Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([duration, currency, country])
+  @@index([country])
+  @@index([isActive])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
 }

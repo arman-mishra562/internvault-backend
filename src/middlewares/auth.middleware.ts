@@ -48,3 +48,32 @@ export const isAuthenticated: RequestHandler = async (
     next(err);
   }
 };
+
+// Admin middleware - must be used after isAuthenticated
+export const isAdmin: RequestHandler = async (
+  req,
+  res,
+  next
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized: User not authenticated' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { isAdmin: true }
+    });
+
+    if (!user || !user.isAdmin) {
+      res.status(403).json({ error: 'Forbidden: Admin access required' });
+      return;
+    }
+
+    next();
+  } catch (err) {
+    console.error('Error in isAdmin middleware:', err);
+    next(err);
+  }
+};
