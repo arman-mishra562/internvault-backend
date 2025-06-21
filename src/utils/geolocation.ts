@@ -8,8 +8,8 @@ export async function getCountryFromIP(ip: string): Promise<{ country: string; c
     try {
         console.log(`🔍 Attempting geolocation for IP: ${ip}`);
 
-        // Use ipapi.com for geolocation with API key
-        const url = `https://api.ipapi.com/api/${ip}?access_key=${process.env.IPAPI_KEY}&fields=country_code,currency`;
+        // Use ip-api.com for free geolocation (1000 requests/minute)
+        const url = `http://ip-api.com/json/${ip}?fields=countryCode,currency`;
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -21,8 +21,8 @@ export async function getCountryFromIP(ip: string): Promise<{ country: string; c
         console.log(`📍 Geolocation response:`, data);
 
         const result = {
-            country: data.country_code || 'US',
-            currency: data.currency?.code || 'USD'
+            country: data.countryCode || 'US',
+            currency: data.currency || 'USD'
         };
 
         console.log(`✅ Final geolocation result:`, result);
