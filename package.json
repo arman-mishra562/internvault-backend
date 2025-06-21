@@ -1,11 +1,14 @@
 {
-  "name": "InternVault_backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "postinstall": "prisma generate",
+    "start": "prisma migrate deploy && node dist/app.js"
   },
   "keywords": [],
   "author": "",
