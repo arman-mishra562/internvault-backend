@@ -26,3 +26,12 @@ export const linkProfilePicSchema = z.object({
 export const deleteAccountSchema = z.object({
   password: z.string().min(1, 'Password confirmation is required'),
 });
+
+// Google OAuth schemas
+export const googleAuthSchema = z.object({
+  idToken: z.string().nonempty('Google ID token is required'),
+});
+
+export const googleCallbackSchema = z.object({
+  code: z.string().nonempty('Authorization code is required'),
+});

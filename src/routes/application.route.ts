@@ -9,6 +9,7 @@ import {
 import validateRequest from '../middlewares/validateRequest';
 import { isAuthenticated, isAdmin } from "../middlewares/auth.middleware";
 import { applicationSchema, updateApplicationSchema } from '../schemas/application.schema';
+import { payWithStripe, payWithPaypal } from '../controllers/payment.controller';
 
 const router = Router();
 
@@ -46,6 +47,20 @@ router.patch(
     isAdmin,
     validateRequest({ body: updateApplicationSchema }),
     updateApplicationStatus
+);
+
+// Payment route (Stripe)
+router.post(
+    '/:id/pay/stripe',
+    isAuthenticated,
+    payWithStripe
+);
+
+// Payment route (PayPal)
+router.post(
+    '/:id/pay/paypal',
+    isAuthenticated,
+    payWithPaypal
 );
 
 export default router; 

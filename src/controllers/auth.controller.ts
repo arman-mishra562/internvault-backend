@@ -7,7 +7,8 @@ import { generateUserId } from '../utils/generateUserId';
 import { generateVerificationEmail, generateResetEmail } from '../utils/emailTemplates';
 import { generateResetToken } from '../utils/generateResetToken';
 import { generateAuthToken } from '../utils/token';
-import { registerSchema, loginSchema, verifySchema, resendSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, verifySchema, resendSchema, googleAuthSchema } from '../schemas/auth.schema';
+import { getGoogleAuthUrl, verifyGoogleToken } from '../config/google';
 
 // Controller for user registration
 export const register: RequestHandler = async (
@@ -145,7 +146,22 @@ export const login: RequestHandler = async (
 
     const { email, password } = parse.data;
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+
+    if (!user) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Check if user is OAuth-only (no password)
+    if (user.oauthProvider && !user.password) {
+      res.status(401).json({
+        error: 'This account was created with Google. Please sign in with Google instead.'
+      });
+      return;
+    }
+
+    // Check if user has password and verify it
+    if (!user.password || !(await bcrypt.compare(password, user.password))) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
@@ -156,7 +172,16 @@ export const login: RequestHandler = async (
     }
 
     const token = generateAuthToken(user.id);
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        oauthProvider: user.oauthProvider,
+        oauthPicture: user.oauthPicture
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -247,7 +272,7 @@ export const deleteUser: RequestHandler = async (
     const userId = (req as any).user.id;
     const { password } = req.body;
 
-    // Check if user exists and verify password
+    // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -257,7 +282,22 @@ export const deleteUser: RequestHandler = async (
       return;
     }
 
-    // Verify password
+    // For OAuth users without password, skip password verification
+    if (user.oauthProvider && !user.password) {
+      // Delete the user without password verification
+      await prisma.user.delete({
+        where: { id: userId },
+      });
+      res.status(200).json({ message: 'User deleted successfully' });
+      return;
+    }
+
+    // For regular users, verify password
+    if (!user.password) {
+      res.status(400).json({ error: 'User has no password set' });
+      return;
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       res.status(401).json({ error: 'Invalid password' });
@@ -270,6 +310,109 @@ export const deleteUser: RequestHandler = async (
     });
 
     res.status(200).json({ message: 'User deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Google OAuth - Get auth URL
+export const getGoogleAuthUrlController: RequestHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authUrl = getGoogleAuthUrl();
+    res.json({ authUrl });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Google OAuth - Handle sign in/up
+export const googleAuth: RequestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const parse = googleAuthSchema.safeParse(req.body);
+    if (!parse.success) {
+      res.status(400).json({ errors: parse.error.flatten().fieldErrors });
+      return;
+    }
+
+    const { idToken } = parse.data;
+
+    // Verify the Google ID token
+    const googleUser = await verifyGoogleToken(idToken);
+
+    if (!googleUser.email_verified) {
+      res.status(400).json({ error: 'Google email not verified' });
+      return;
+    }
+
+    // Ensure required fields are present
+    if (!googleUser.email || !googleUser.name || !googleUser.sub) {
+      res.status(400).json({ error: 'Invalid Google user data' });
+      return;
+    }
+
+    // Check if user already exists
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: googleUser.email },
+          {
+            oauthProvider: 'google',
+            oauthId: googleUser.sub
+          }
+        ]
+      }
+    });
+
+    if (user) {
+      // User exists - update OAuth info if needed
+      if (!user.oauthProvider || !user.oauthId) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            oauthProvider: 'google',
+            oauthId: googleUser.sub,
+            oauthPicture: googleUser.picture || null,
+            isEmailVerified: true // Google emails are pre-verified
+          }
+        });
+      }
+    } else {
+      // Create new user
+      const newId = generateUserId();
+      user = await prisma.user.create({
+        data: {
+          id: newId,
+          name: googleUser.name,
+          email: googleUser.email,
+          oauthProvider: 'google',
+          oauthId: googleUser.sub,
+          oauthPicture: googleUser.picture || null,
+          isEmailVerified: true // Google emails are pre-verified
+        }
+      });
+    }
+
+    // Generate JWT token
+    const token = generateAuthToken(user.id);
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        oauthProvider: user.oauthProvider,
+        oauthPicture: user.oauthPicture
+      }
+    });
   } catch (err) {
     next(err);
   }

@@ -5,11 +5,19 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.route';
 import applicationRoutes from './routes/application.route';
 import pricingRoutes from './routes/pricing.route';
+import { stripeWebhook, paypalWebhook } from './controllers/payment.controller';
 
 dotenv.config();
 const app = express();
 
 app.use(cors());
+
+// Stripe webhook (must be before express.json middleware if in same file)
+app.post('/webhook/stripe', express.raw({ type: 'application/json' }), stripeWebhook);
+
+// PayPal webhook
+app.post('/webhook/paypal', express.json(), paypalWebhook);
+
 app.use(express.json());
 
 // Health check route

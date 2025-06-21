@@ -13,6 +13,8 @@ export const getPricingPlans: RequestHandler = async (
         const clientIP = getClientIP(req);
         const { country, currency } = await getCountryFromIP(clientIP);
 
+        console.log(`🌍 Detected country: ${country}, currency: ${currency}, IP: ${clientIP}`);
+
         // Get pricing plans for the user's country, fallback to default (null country)
         const pricingPlans = await prisma.pricingPlan.findMany({
             where: {
@@ -32,11 +34,17 @@ export const getPricingPlans: RequestHandler = async (
             }
         });
 
+        console.log(`📊 Found ${pricingPlans.length} total plans`);
+
         // If no country-specific plans found, use default plans
         const countrySpecificPlans = pricingPlans.filter(plan => plan.country === country);
         const defaultPlans = pricingPlans.filter(plan => plan.country === null);
 
+        console.log(`🏳️ Country-specific plans: ${countrySpecificPlans.length}, Default plans: ${defaultPlans.length}`);
+
         const finalPlans = countrySpecificPlans.length > 0 ? countrySpecificPlans : defaultPlans;
+
+        console.log(`✅ Returning ${finalPlans.length} plans for country: ${country}`);
 
         res.json({
             pricingPlans: finalPlans,

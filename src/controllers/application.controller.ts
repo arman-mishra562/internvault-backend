@@ -16,7 +16,7 @@ export const submitApplication: RequestHandler = async (
         }
 
         const userId = (req as any).user.id;
-        const { fullName, contactEmail, whatsappNumber, domain, price, currency } = parse.data;
+        const { fullName, contactEmail, whatsappNumber, role, domain, price, currency } = parse.data;
 
         // Check if user already has a pending application
         const existingApplication = await prisma.application.findFirst({
@@ -36,6 +36,7 @@ export const submitApplication: RequestHandler = async (
                 fullName,
                 contactEmail,
                 whatsappNumber,
+                role,
                 domain,
                 price,
                 currency,
@@ -59,6 +60,7 @@ export const submitApplication: RequestHandler = async (
                 fullName: application.fullName,
                 contactEmail: application.contactEmail,
                 whatsappNumber: application.whatsappNumber,
+                role: application.role,
                 domain: application.domain,
                 price: application.price,
                 currency: application.currency,
@@ -88,6 +90,7 @@ export const getUserApplications: RequestHandler = async (
                 fullName: true,
                 contactEmail: true,
                 whatsappNumber: true,
+                role: true,
                 domain: true,
                 price: true,
                 currency: true,
@@ -123,6 +126,7 @@ export const getApplication: RequestHandler = async (
                 fullName: true,
                 contactEmail: true,
                 whatsappNumber: true,
+                role: true,
                 domain: true,
                 price: true,
                 currency: true,

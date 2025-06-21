@@ -17,7 +17,7 @@ model User {
   id                String   @id
   name              String
   email             String   @unique
-  password          String
+  password          String?  // Made optional for OAuth users
   isEmailVerified   Boolean  @default(false)
   emailToken        String?  // for email verification
   emailTokenExpiry  DateTime?
@@ -27,12 +27,20 @@ model User {
   currentStreak     Int       @default(0)
   maxStreak         Int       @default(0)
   lastActiveAt      DateTime?
+  
+  // OAuth fields
+  oauthProvider     String?  // 'google', 'facebook', etc.
+  oauthId           String?  // ID from OAuth provider
+  oauthPicture      String?  // Profile picture URL from OAuth
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // Relations
   applications      Application[]
+
+  @@unique([oauthProvider, oauthId])
+  @@index([oauthProvider, oauthId])
 }
 
 model Application {
@@ -40,19 +48,44 @@ model Application {
   fullName      String
   contactEmail  String
   whatsappNumber String
+  role          String
   domain        String
   price         Float
   currency      String
   userId        String
   status        ApplicationStatus @default(PENDING)
+  isPaid        Boolean  @default(false)
+  paymentId     String?  // Reference to payment record
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment       Payment?
 
   @@index([userId])
+  @@index([status])
+  @@index([isPaid])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  applicationId String   @unique
+  amount        Float
+  currency      String
+  gateway       PaymentGateway
+  gatewayPaymentId String? // External payment ID from gateway
+  status        PaymentStatus @default(PENDING)
+  metadata      Json?    // Store gateway-specific data
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([gateway])
   @@index([status])
 }
 
@@ -78,4 +111,18 @@ enum ApplicationStatus {
   REJECTED
   IN_PROGRESS
   COMPLETED
+}
+
+enum PaymentGateway {
+  STRIPE
+  PAYPAL
+  GOOGLEPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
 }

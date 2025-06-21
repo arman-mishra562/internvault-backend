@@ -17,12 +17,12 @@ async function main() {
 
     // India pricing plans (INR)
     const indiaPlans = [
-        { duration: 1, price: 7999, currency: 'INR', country: 'IN' },
-        { duration: 2, price: 14999, currency: 'INR', country: 'IN' },
-        { duration: 3, price: 21999, currency: 'INR', country: 'IN' },
-        { duration: 4, price: 28999, currency: 'INR', country: 'IN' },
-        { duration: 5, price: 35999, currency: 'INR', country: 'IN' },
-        { duration: 6, price: 41999, currency: 'INR', country: 'IN' },
+        { duration: 1, price: 3500, currency: 'INR', country: 'IN' },
+        { duration: 2, price: 6500, currency: 'INR', country: 'IN' },
+        { duration: 3, price: 8500, currency: 'INR', country: 'IN' },
+        { duration: 4, price: 10500, currency: 'INR', country: 'IN' },
+        { duration: 5, price: 12500, currency: 'INR', country: 'IN' },
+        { duration: 6, price: 14500, currency: 'INR', country: 'IN' },
     ];
 
     // UK pricing plans (GBP)
