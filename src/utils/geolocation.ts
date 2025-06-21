@@ -6,26 +6,36 @@ interface GeolocationResponse {
 
 export async function getCountryFromIP(ip: string): Promise<{ country: string; currency: string }> {
     try {
-        // Use ipapi.co for free geolocation
-        const response = await fetch(`https://ipapi.co/${ip}/json/`);
+        console.log(`🔍 Attempting geolocation for IP: ${ip}`);
+
+        // Use ipapi.com for geolocation with API key
+        const url = `https://api.ipapi.com/api/${ip}?access_key=${process.env.IPAPI_KEY}&fields=country_code,currency`;
+        const response = await fetch(url);
 
         if (!response.ok) {
+            console.log(`❌ Geolocation API failed with status: ${response.status}`);
             throw new Error('Failed to fetch geolocation data');
         }
 
-        const data: GeolocationResponse = await response.json();
+        const data = await response.json();
+        console.log(`📍 Geolocation response:`, data);
 
-        return {
+        const result = {
             country: data.country_code || 'US',
-            currency: data.currency || 'USD'
+            currency: data.currency?.code || 'USD'
         };
+
+        console.log(`✅ Final geolocation result:`, result);
+        return result;
     } catch (error) {
-        console.error('Error fetching geolocation:', error);
+        console.error('❌ Error fetching geolocation:', error);
         // Default fallback
-        return {
+        const fallback = {
             country: 'US',
             currency: 'USD'
         };
+        console.log(`🔄 Using fallback:`, fallback);
+        return fallback;
     }
 }
 

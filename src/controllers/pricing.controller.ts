@@ -10,10 +10,25 @@ export const getPricingPlans: RequestHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const clientIP = getClientIP(req);
-        const { country, currency } = await getCountryFromIP(clientIP);
+        // Allow manual country override for testing
+        const manualCountry = req.query.country as string;
 
-        console.log(`🌍 Detected country: ${country}, currency: ${currency}, IP: ${clientIP}`);
+        let country: string;
+        let currency: string;
+
+        if (manualCountry) {
+            // Use manually specified country
+            country = manualCountry;
+            currency = getCurrencyForCountry(manualCountry);
+            console.log(`🧪 Using manual country: ${country}, currency: ${currency}`);
+        } else {
+            // Use geolocation
+            const clientIP = getClientIP(req);
+            const geoResult = await getCountryFromIP(clientIP);
+            country = geoResult.country;
+            currency = geoResult.currency;
+            console.log(`🌍 Detected country: ${country}, currency: ${currency}, IP: ${clientIP}`);
+        }
 
         // Get pricing plans for the user's country, fallback to default (null country)
         const pricingPlans = await prisma.pricingPlan.findMany({
@@ -55,6 +70,19 @@ export const getPricingPlans: RequestHandler = async (
         next(err);
     }
 };
+
+// Helper function to get currency for a country
+function getCurrencyForCountry(country: string): string {
+    const currencyMap: { [key: string]: string } = {
+        'IN': 'INR',
+        'US': 'USD',
+        'GB': 'GBP',
+        'EU': 'EUR',
+        'CA': 'CAD',
+        'AU': 'AUD'
+    };
+    return currencyMap[country] || 'USD';
+}
 
 // Admin: Create pricing plan
 export const createPricingPlan: RequestHandler = async (
@@ -182,6 +210,60 @@ export const deletePricingPlan: RequestHandler = async (
         });
 
         res.json({ message: 'Pricing plan deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Test endpoint for debugging pricing plans
+export const testPricingPlans: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const { country = 'IN' } = req.query; // Default to India for testing
+
+        console.log(`🧪 Testing pricing plans for country: ${country}`);
+
+        // Get pricing plans for the specified country, fallback to default (null country)
+        const pricingPlans = await prisma.pricingPlan.findMany({
+            where: {
+                isActive: true,
+                OR: [
+                    { country: country as string },
+                    { country: null } // Default plans
+                ]
+            },
+            orderBy: { duration: 'asc' },
+            select: {
+                id: true,
+                duration: true,
+                price: true,
+                currency: true,
+                country: true
+            }
+        });
+
+        console.log(`📊 Found ${pricingPlans.length} total plans`);
+
+        // If no country-specific plans found, use default plans
+        const countrySpecificPlans = pricingPlans.filter(plan => plan.country === country);
+        const defaultPlans = pricingPlans.filter(plan => plan.country === null);
+
+        console.log(`🏳️ Country-specific plans: ${countrySpecificPlans.length}, Default plans: ${defaultPlans.length}`);
+
+        const finalPlans = countrySpecificPlans.length > 0 ? countrySpecificPlans : defaultPlans;
+
+        console.log(`✅ Returning ${finalPlans.length} plans for country: ${country}`);
+
+        res.json({
+            pricingPlans: finalPlans,
+            testCountry: country,
+            countrySpecificPlans,
+            defaultPlans,
+            allPlans: pricingPlans
+        });
     } catch (err) {
         next(err);
     }

@@ -4,7 +4,8 @@ import {
     createPricingPlan,
     getAllPricingPlans,
     updatePricingPlan,
-    deletePricingPlan
+    deletePricingPlan,
+    testPricingPlans
 } from '../controllers/pricing.controller';
 import validateRequest from '../middlewares/validateRequest';
 import { isAuthenticated, isAdmin } from "../middlewares/auth.middleware";
@@ -45,5 +46,8 @@ router.delete(
     isAdmin,
     deletePricingPlan
 );
+
+// Test route for debugging pricing plans
+router.get('/test', testPricingPlans);
 
 export default router; 
