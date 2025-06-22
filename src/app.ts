@@ -10,7 +10,21 @@ import { stripeWebhook, paypalWebhook } from './controllers/payment.controller';
 dotenv.config();
 const app = express();
 
-app.use(cors());
+// CORS configuration - THIS IS THE FIX
+const corsOptions = {
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://www.internvault.com', // Your production frontend
+        'https://internvault.com' // Also allow without www
+    ],
+    credentials: true, // This is the key fix - allows cookies/credentials
+    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+app.use(cors(corsOptions));
 
 // Stripe webhook (must be before express.json middleware if in same file)
 app.post('/webhook/stripe', express.raw({ type: 'application/json' }), stripeWebhook);

@@ -1,12 +1,12 @@
 # InternVault Backend
 
-A Node.js/Express backend for InternVault with authentication, application management, and dynamic pricing features.
+A Node.js/Express backend for InternVault with authentication, application management, payment processing, and dynamic pricing features.
 
 ## Features
 
 ### Authentication
 
-- User registration with email verification
+- User registration with email verification and Google OAuth
 - Login/logout functionality
 - Password reset via email
 - JWT-based authentication
@@ -18,20 +18,30 @@ A Node.js/Express backend for InternVault with authentication, application manag
   - Full name
   - Contact email
   - WhatsApp number
+  - **Role** (new)
   - Domain
   - Price
   - Currency
 - View user's applications
 - Admin can view and manage all applications
 - Application status tracking (PENDING, APPROVED, REJECTED, IN_PROGRESS, COMPLETED)
+- Users can only have one active (PENDING or IN_PROGRESS) application at a time.
+
+### Payment Processing
+
+- Integrated with **Stripe** and **PayPal** for application payments.
+- **Google Pay** is supported through the Stripe integration.
+- Atomic payment transactions: Application status is updated to `IN_PROGRESS` only after a successful payment.
+- Webhooks for handling asynchronous payment confirmations from Stripe and PayPal.
 
 ### Dynamic Pricing
 
-- Country-based pricing plans using IP geolocation
-- Support for multiple currencies (USD, INR, GBP, EUR)
-- Duration-based pricing (1-6 months)
-- Admin can manage pricing plans
-- Fallback to default pricing if country-specific plans not found
+- Country-based pricing plans using IP geolocation.
+- Support for multiple currencies (USD, INR, GBP, EUR).
+- Duration-based pricing (1-12 months).
+- Admin can manage pricing plans.
+- Fallback to default pricing if country-specific plans are not found.
+- Carousel endpoint can be tested with a manual country override (e.g., `/api/pricing/carousel?country=IN`).
 
 ## API Endpoints
 
@@ -54,9 +64,19 @@ A Node.js/Express backend for InternVault with authentication, application manag
 - `GET /api/applications/all` - Get all applications (admin)
 - `PATCH /api/applications/:id/status` - Update application status (admin)
 
+### Payment
+
+- `POST /api/applications/:id/pay/stripe` - Initiate Stripe payment for an application (authenticated)
+- `POST /api/applications/:id/pay/paypal` - Initiate PayPal payment for an application (authenticated)
+
+### Webhooks (for payment gateways)
+
+- `POST /webhook/stripe` - Handles Stripe payment events
+- `POST /webhook/paypal` - Handles PayPal payment events
+
 ### Pricing
 
-- `GET /api/pricing/carousel` - Get pricing plans for carousel (public)
+- `GET /api/pricing/carousel` - Get pricing plans for carousel (public). Supports `?country=XX` override.
 - `POST /api/pricing` - Create pricing plan (admin)
 - `GET /api/pricing/all` - Get all pricing plans (admin)
 - `PATCH /api/pricing/:id` - Update pricing plan (admin)
@@ -91,18 +111,40 @@ model User {
 
 ```prisma
 model Application {
-  id            String   @id @default(cuid())
-  fullName      String
-  contactEmail  String
+  id             String            @id @default(cuid())
+  fullName       String
+  contactEmail   String
   whatsappNumber String
-  domain        String
-  price         Float
-  currency      String
-  userId        String
-  status        ApplicationStatus @default(PENDING)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  domain         String
+  price          Float
+  currency       String
+  userId         String
+  status         ApplicationStatus @default(PENDING)
+  isPaid         Boolean           @default(false)
+  paymentId      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment        Payment?
+}
+```
+
+### Payment Model
+
+```prisma
+model Payment {
+  id               String         @id @default(cuid())
+  applicationId    String         @unique
+  amount           Float
+  currency         String
+  gateway          PaymentGateway
+  gatewayPaymentId String?
+  status           PaymentStatus  @default(PENDING)
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  application      Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 ```
 
@@ -110,12 +152,12 @@ model Application {
 
 ```prisma
 model PricingPlan {
-  id       String @id @default(cuid())
-  duration Int    // in months (1-6)
-  price    Float
-  currency String
-  country  String? // ISO country code
-  isActive Boolean @default(true)
+  id        String   @id @default(cuid())
+  duration  Int
+  price     Float
+  currency  String
+  country   String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -144,6 +186,18 @@ FRONTEND_URL="http://localhost:3000"
 
 # Server
 PORT=5000
+
+# Geolocation API
+IPAPI_KEY="your_ipapi.com_access_key"
+
+# Stripe
+STRIPE_SECRET_KEY="your_stripe_secret_key"
+STRIPE_WEBHOOK_SECRET="your_stripe_webhook_secret"
+
+# PayPal
+PAYPAL_CLIENT_ID="your_paypal_client_id"
+PAYPAL_CLIENT_SECRET="your_paypal_client_secret"
+# PAYPAL_API_BASE="https://api-m.sandbox.paypal.com" # (optional, defaults to sandbox)
 ```
 
 ## Installation
@@ -163,22 +217,35 @@ PORT=5000
    npx prisma generate
    ```
 
-5. Push database schema:
+5. Run database migrations:
 
    ```bash
-   npx prisma db push
+   npx prisma migrate dev
    ```
 
 6. Seed the database with pricing plans:
 
    ```bash
-   npm run seed
+   npx prisma db seed
    ```
 
 7. Start the development server:
    ```bash
-   npm run dev
+   pnpm dev
    ```
+
+## Geolocation
+
+The pricing system uses IP geolocation to determine the user's country and currency.
+It uses the free [ip-api.com](http://ip-api.com/) service, which does not require an API key. For local testing, you can simulate requests from different countries by adding the `X-Forwarded-For` header or using the `?country=XX` query parameter on the carousel endpoint.
+
+```
+# Example: Test carousel for India
+curl "http://localhost:5000/api/pricing/carousel?country=IN"
+
+# Example: Simulate a request from a UK IP
+curl -H "X-Forwarded-For: 212.102.33.80" "http://localhost:5000/api/pricing/carousel"
+```
 
 ## Usage Examples
 
@@ -240,15 +307,6 @@ const response = await fetch("/api/pricing", {
   }),
 });
 ```
-
-## Geolocation
-
-The pricing system uses IP geolocation to determine user's country and currency. The system:
-
-1. Extracts client IP from request headers
-2. Uses ipapi.co service to get country and currency
-3. Returns country-specific pricing plans
-4. Falls back to default plans if country-specific plans not found
 
 ## Security Features
 
