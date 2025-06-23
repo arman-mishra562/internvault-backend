@@ -7,12 +7,12 @@ async function main() {
 
     // Default pricing plans (USD)
     const defaultPlans = [
-        { duration: 1, price: 99, currency: 'USD' },
-        { duration: 2, price: 189, currency: 'USD' },
-        { duration: 3, price: 269, currency: 'USD' },
-        { duration: 4, price: 349, currency: 'USD' },
-        { duration: 5, price: 429, currency: 'USD' },
-        { duration: 6, price: 499, currency: 'USD' },
+        { duration: 1, price: 90, currency: 'USD' },
+        { duration: 2, price: 170, currency: 'USD' },
+        { duration: 3, price: 240, currency: 'USD' },
+        { duration: 4, price: 300, currency: 'USD' },
+        { duration: 5, price: 350, currency: 'USD' },
+        { duration: 6, price: 390, currency: 'USD' },
     ];
 
     // India pricing plans (INR)
@@ -27,12 +27,12 @@ async function main() {
 
     // UK pricing plans (GBP)
     const ukPlans = [
-        { duration: 1, price: 79, currency: 'GBP', country: 'GB' },
-        { duration: 2, price: 149, currency: 'GBP', country: 'GB' },
-        { duration: 3, price: 219, currency: 'GBP', country: 'GB' },
-        { duration: 4, price: 289, currency: 'GBP', country: 'GB' },
-        { duration: 5, price: 359, currency: 'GBP', country: 'GB' },
-        { duration: 6, price: 419, currency: 'GBP', country: 'GB' },
+        { duration: 1, price: 80, currency: 'GBP', country: 'GB' },
+        { duration: 2, price: 150, currency: 'GBP', country: 'GB' },
+        { duration: 3, price: 210, currency: 'GBP', country: 'GB' },
+        { duration: 4, price: 260, currency: 'GBP', country: 'GB' },
+        { duration: 5, price: 300, currency: 'GBP', country: 'GB' },
+        { duration: 6, price: 330, currency: 'GBP', country: 'GB' },
     ];
 
     // EU pricing plans (EUR)

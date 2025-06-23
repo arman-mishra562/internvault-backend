@@ -172,6 +172,8 @@ export const login: RequestHandler = async (
     }
 
     const token = generateAuthToken(user.id);
+    // Check if an application exists for this user
+    const applicationExists = await prisma.application.findFirst({ where: { userId: user.id } }) !== null;
     res.json({
       token,
       user: {
@@ -180,7 +182,8 @@ export const login: RequestHandler = async (
         email: user.email,
         oauthProvider: user.oauthProvider,
         oauthPicture: user.oauthPicture
-      }
+      },
+      hasApplication: applicationExists
     });
   } catch (err) {
     next(err);

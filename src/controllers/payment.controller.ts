@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/prisma';
 import stripe from '../config/stripe';
-import { Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { RequestHandler } from 'express';
 import { getPaypalAccessToken, PAYPAL_API_BASE } from '../config/paypal';
 import axios from 'axios';
@@ -104,14 +104,56 @@ export const stripeWebhook: RequestHandler = async (req, res, next): Promise<voi
 
         try {
             await prisma.$transaction(async (tx) => {
+                // 1. Mark payment as completed
                 await tx.payment.updateMany({
                     where: { gateway: 'STRIPE', gatewayPaymentId: paymentId },
                     data: { status: 'COMPLETED', metadata: session },
                 });
+                // 2. Update application status
                 await tx.application.updateMany({
                     where: { id: applicationId },
                     data: { isPaid: true, status: 'IN_PROGRESS' },
                 });
+                // 3. Fetch application and user
+                const application = await tx.application.findUnique({ where: { id: applicationId } });
+                if (!application) throw new Error('Application not found');
+                const user = await tx.user.findUnique({ where: { id: application.userId } });
+                if (!user) throw new Error('User not found');
+                // 4. Find purchased plan
+                const plan = await tx.pricingPlan.findFirst({
+                    where: {
+                        price: application.price,
+                        currency: application.currency,
+                    },
+                });
+                // 5. Create Internship
+                const internship = await tx.internship.create({
+                    data: {
+                        userId: user.id,
+                        applicationId: application.id,
+                        planId: plan?.id ?? null,
+                        fullName: application.fullName,
+                        email: application.contactEmail,
+                        whatsapp: application.whatsappNumber,
+                        domain: application.domain,
+                        role: application.role,
+                    },
+                });
+                // 6. Assign projects
+                const projects = await tx.project.findMany({
+                    where: {
+                        domain: application.domain,
+                        role: application.role,
+                    },
+                });
+                for (const project of projects) {
+                    await tx.internshipProject.create({
+                        data: {
+                            internshipId: internship.id,
+                            projectId: project.id,
+                        },
+                    });
+                }
             });
         } catch (err) {
             res.status(500).send('Webhook DB error');
@@ -207,14 +249,56 @@ export const paypalWebhook: RequestHandler = async (req, res, next): Promise<voi
         const customId = event.resource.purchase_units?.[0]?.custom_id;
         try {
             await prisma.$transaction(async (tx) => {
+                // 1. Mark payment as completed
                 await tx.payment.updateMany({
                     where: { gateway: 'PAYPAL', gatewayPaymentId: orderId },
                     data: { status: 'COMPLETED', metadata: event },
                 });
+                // 2. Update application status
                 await tx.application.updateMany({
                     where: { id: customId },
                     data: { isPaid: true, status: 'IN_PROGRESS' },
                 });
+                // 3. Fetch application and user
+                const application = await tx.application.findUnique({ where: { id: customId } });
+                if (!application) throw new Error('Application not found');
+                const user = await tx.user.findUnique({ where: { id: application.userId } });
+                if (!user) throw new Error('User not found');
+                // 4. Find purchased plan
+                const plan = await tx.pricingPlan.findFirst({
+                    where: {
+                        price: application.price,
+                        currency: application.currency,
+                    },
+                });
+                // 5. Create Internship
+                const internship = await tx.internship.create({
+                    data: {
+                        userId: user.id,
+                        applicationId: application.id,
+                        planId: plan?.id ?? null,
+                        fullName: application.fullName,
+                        email: application.contactEmail,
+                        whatsapp: application.whatsappNumber,
+                        domain: application.domain,
+                        role: application.role,
+                    },
+                });
+                // 6. Assign projects
+                const projects = await tx.project.findMany({
+                    where: {
+                        domain: application.domain,
+                        role: application.role,
+                    },
+                });
+                for (const project of projects) {
+                    await tx.internshipProject.create({
+                        data: {
+                            internshipId: internship.id,
+                            projectId: project.id,
+                        },
+                    });
+                }
             });
         } catch (err) {
             res.status(500).send('Webhook DB error');
