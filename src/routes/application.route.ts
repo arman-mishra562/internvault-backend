@@ -4,7 +4,8 @@ import {
     getUserApplications,
     getApplication,
     getAllApplications,
-    updateApplicationStatus
+    updateApplicationStatus,
+    getUserDashboardProjects
 } from '../controllers/application.controller';
 import validateRequest from '../middlewares/validateRequest';
 import { isAuthenticated, isAdmin } from "../middlewares/auth.middleware";
@@ -61,6 +62,12 @@ router.post(
     '/:id/pay/paypal',
     isAuthenticated,
     payWithPaypal
+);
+
+router.get(
+    '/dashboard-projects',
+    isAuthenticated,
+    getUserDashboardProjects
 );
 
 export default router; 

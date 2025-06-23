@@ -242,4 +242,45 @@ export const updateApplicationStatus: RequestHandler = async (
     } catch (err) {
         next(err);
     }
+};
+
+// Get dashboard projects for the user based on their purchased plan, domain, and role
+export const getUserDashboardProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = (req as any).user.id;
+        // Find the user's active internship (assuming one active at a time)
+        const internship = await prisma.internship.findFirst({
+            where: {
+                userId,
+                status: 'ACTIVE',
+            },
+        });
+        if (!internship) {
+            res.status(404).json({ error: 'No active internship found for user.' });
+            return;
+        }
+        // Find the matching project by domain and role, select only the new fields
+        const project = await prisma.project.findFirst({
+            where: {
+                domain: internship.domain,
+                role: internship.role,
+            },
+            select: {
+                easyProjects: true,
+                mediumProjects: true,
+                hardProjects: true,
+            },
+        });
+        if (!project) {
+            res.status(404).json({ error: 'No project found for user domain and role.' });
+            return;
+        }
+        res.json({
+            easyProjects: project.easyProjects,
+            mediumProjects: project.mediumProjects,
+            hardProjects: project.hardProjects,
+        });
+    } catch (err) {
+        next(err);
+    }
 }; 

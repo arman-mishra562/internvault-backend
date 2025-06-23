@@ -163,15 +163,15 @@ enum DifficultyLevel {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  domain      String
-  role        String
-  Difficulty  DifficultyLevel @default(EASY)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  assignments InternshipProject[]
+  id            String   @id @default(cuid())
+  domain        String
+  role          String
+  easyProjects  String[]
+  mediumProjects String[]
+  hardProjects  String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  assignments   InternshipProject[] // Bidirectional relation
 }
 
 model InternshipProject {
