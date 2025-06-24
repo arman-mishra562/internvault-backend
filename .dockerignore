@@ -1,0 +1,11 @@
+node_modules
+.env
+dist
+*.tsbuildinfo
+/src/generated/prisma
+*.log
+.git
+.gitignore
+InternVault.postman_collection.json
+README.md
+prisma/migrations 
