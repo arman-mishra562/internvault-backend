@@ -33,7 +33,7 @@ export const payWithStripe = async (req: Request, res: Response, next: NextFunct
             return;
         }
 
-        // Create Stripe Checkout Session
+        // Create Stripe Checkout Session with Google Pay support
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [
@@ -306,4 +306,4 @@ export const paypalWebhook: RequestHandler = async (req, res, next): Promise<voi
         }
     }
     res.json({ received: true });
-}; 
+};
