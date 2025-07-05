@@ -1,0 +1,50 @@
+{
+	"name": "InternVault_backend",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+		"build": "tsc",
+		"postinstall": "prisma generate",
+		"start": "prisma migrate deploy && node dist/app.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.12.1",
+	"prisma": {
+		"seed": "ts-node prisma/seed.ts"
+	},
+	"dependencies": {
+		"@prisma/client": "6.10.1",
+		"@types/bcryptjs": "^3.0.0",
+		"@types/stripe": "^8.0.417",
+		"@types/uuid": "^10.0.0",
+		"axios": "^1.10.0",
+		"bcryptjs": "^3.0.2",
+		"cashfree-pg-sdk-nodejs": "^2.0.2",
+		"cors": "^2.8.5",
+		"dotenv": "^16.5.0",
+		"exceljs": "^4.4.0",
+		"express": "^5.1.0",
+		"google-auth-library": "^10.1.0",
+		"jsonwebtoken": "^9.0.2",
+		"nodemailer": "^7.0.3",
+		"stripe": "^18.2.1",
+		"uuid": "^11.1.0",
+		"zod": "^3.25.67"
+	},
+	"devDependencies": {
+		"@types/cors": "^2.8.19",
+		"@types/express": "^5.0.3",
+		"@types/jsonwebtoken": "^9.0.10",
+		"@types/node": "^24.0.3",
+		"@types/nodemailer": "^6.4.17",
+		"prisma": "^6.10.1",
+		"ts-node": "^10.9.2",
+		"ts-node-dev": "^2.0.0",
+		"typescript": "^5.8.3"
+	}
+}

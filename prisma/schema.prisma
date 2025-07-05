@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id
+  name              String
+  email             String   @unique
+  password          String?  // Made optional for OAuth users
+  isEmailVerified   Boolean  @default(false)
+  emailToken        String?  // for email verification
+  emailTokenExpiry  DateTime?
+  resetToken        String?   // for password resets
+  resetTokenExpiry  DateTime?
+  isAdmin           Boolean       @default(false)
+  currentStreak     Int       @default(0)
+  maxStreak         Int       @default(0)
+  lastActiveAt      DateTime?
+  
+  // OAuth fields
+  oauthProvider     String?  // 'google', 'facebook', etc.
+  oauthId           String?  // ID from OAuth provider
+  oauthPicture      String?  // Profile picture URL from OAuth
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  applications      Application[]
+
+  @@unique([oauthProvider, oauthId])
+  @@index([oauthProvider, oauthId])
+}
+
+model Application {
+  id            String   @id @default(cuid())
+  fullName      String
+  contactEmail  String
+  whatsappNumber String
+  role          String
+  domain        String
+  duration      Int      // Duration in months (1, 2, 3, 4, 5, 6)
+  price         Float
+  currency      String
+  userId        String
+  status        ApplicationStatus @default(PENDING)
+  isPaid        Boolean  @default(false)
+  hasProjectCertificate Boolean @default(false)  // Set to true when admin approves project
+  hasInternshipCertificate Boolean @default(false) // Set to true after successful payment
+  paymentId     String?  // Reference to payment record
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+  projectAssignments ApplicationProject[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([isPaid])
+  @@index([hasProjectCertificate])
+  @@index([hasInternshipCertificate])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  applicationId String
+  amount        Float
+  currency      String
+  gateway       PaymentGateway
+  gatewayPaymentId String? // External payment ID from gateway
+  status        PaymentStatus @default(PENDING)
+  metadata      Json?    // Store gateway-specific data
+  expiresAt     DateTime? // Expiry time for payment
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([gateway])
+  @@index([status])
+  @@index([applicationId])
+}
+
+model PricingPlan {
+  id       String @id @default(cuid())
+  duration Int    // in months (1, 2, 3, 4, 5, 6)
+  price    Float
+  currency String
+  country  String? // ISO country code (e.g., 'US', 'IN', 'GB')
+  isActive Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([duration, currency, country])
+  @@index([country])
+  @@index([isActive])
+}
+
+enum ApplicationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PaymentGateway {
+  STRIPE
+  PAYPAL
+  NETBANKING
+  CASHFREE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum DifficultyLevel {
+  EASY
+  NORMAL
+  HARD
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String?
+  domain      String
+  role        String
+  url         String
+  difficulty  DifficultyLevel
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assignments ApplicationProject[]
+}
+
+model ApplicationProject {
+  id             String   @id @default(cuid())
+  applicationId  String
+  projectId      String
+  submissionUrl  String?
+  submittedAt    DateTime?
+  approved       Boolean  @default(false)
+  approvedAt     DateTime?
+  approvedBy     String?  // Admin user ID who approved
+  points         Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([projectId])
+  @@index([approved])
+}
