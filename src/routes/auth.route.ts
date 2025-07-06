@@ -8,7 +8,6 @@ import {
   forgotPassword,
   resetPassword,
   deleteUser,
-  getGoogleAuthUrlController,
   googleAuth
 } from '../controllers/auth.controller';
 import validateRequest from '../middlewares/validateRequest';
@@ -24,8 +23,7 @@ router.post('/resend-verification', resendVerification);
 router.post('/login', login);
 router.post('/logout', logout);
 
-// Google OAuth routes
-router.get('/google/url', getGoogleAuthUrlController);
+// Google Sign-In route
 router.post('/google/auth', validateRequest({ body: googleAuthSchema }), googleAuth);
 
 router.post(

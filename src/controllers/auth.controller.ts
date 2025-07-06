@@ -17,7 +17,7 @@ import {
 	resendSchema,
 	googleAuthSchema,
 } from '../schemas/auth.schema';
-import { getGoogleAuthUrl, verifyGoogleToken } from '../config/google';
+import { verifyGoogleToken } from '../config/google';
 
 // Controller for user registration
 export const register: RequestHandler = async (
@@ -35,9 +35,11 @@ export const register: RequestHandler = async (
 		const { name, email, password } = parse.data;
 		const existing = await prisma.user.findUnique({ where: { email } });
 		if (existing) {
-			res
-				.status(409)
-				.json({ error: 'Email already in use (Login or Resend Verification)' });
+			if (existing.isEmailVerified) {
+				res.status(409).json({ error: 'Email already registered. Please proceed to login.' });
+			} else {
+				res.status(409).json({ error: 'Email registered but not verified. Please verify your account.' });
+			}
 			return;
 		}
 
@@ -221,9 +223,9 @@ export const forgotPassword: RequestHandler = async (
 	try {
 		const { email } = req.body;
 		const user = await prisma.user.findUnique({ where: { email } });
-		if (!user) {
+		if (!user || !user.isEmailVerified) {
 			res.json({
-				message: "If that email is registered, you'll receive a reset link.",
+				message: "A reset link will be sent if the email is registered and verified. If not, please verify your account.",
 			});
 			return;
 		}
@@ -348,20 +350,6 @@ export const deleteUser: RequestHandler = async (
 	}
 };
 
-// Google OAuth - Get auth URL
-export const getGoogleAuthUrlController: RequestHandler = async (
-	_req: Request,
-	res: Response,
-	next: NextFunction,
-): Promise<void> => {
-	try {
-		const authUrl = getGoogleAuthUrl();
-		res.json({ authUrl });
-	} catch (err) {
-		next(err);
-	}
-};
-
 // Google OAuth - Handle sign in/up
 export const googleAuth: RequestHandler = async (
 	req: Request,
@@ -436,6 +424,12 @@ export const googleAuth: RequestHandler = async (
 		// Generate JWT token
 		const token = generateAuthToken(user.id);
 
+		// Check if an application exists for this user with IN_PROGRESS status
+		const applicationExists =
+			(await prisma.application.findFirst({
+				where: { userId: user.id, status: 'IN_PROGRESS' },
+			})) !== null;
+
 		res.json({
 			token,
 			user: {
@@ -445,6 +439,7 @@ export const googleAuth: RequestHandler = async (
 				oauthProvider: user.oauthProvider,
 				oauthPicture: user.oauthPicture,
 			},
+			hasApplication: applicationExists,
 		});
 	} catch (err) {
 		next(err);
