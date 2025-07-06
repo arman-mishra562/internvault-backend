@@ -9,6 +9,7 @@ import {
 	submitProject,
 	approveProject,
 	getApplicationWithProjects,
+	deleteApplication,
 } from '../controllers/application.controller';
 import validateRequest from '../middlewares/validateRequest';
 import { isAuthenticated, isAdmin } from '../middlewares/auth.middleware';
@@ -82,5 +83,7 @@ router.post('/:id/pay/cashfree-upi', isAuthenticated, payWithCashfreeUPI);
 
 // Webhook routes
 router.post('/webhook/cashfree', cashfreeWebhook);
+
+router.delete('/:id', isAuthenticated, deleteApplication);
 
 export default router;

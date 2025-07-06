@@ -120,12 +120,6 @@ async function assignProjectsToApplication(applicationId: string, domain: string
 				data: assignments,
 			});
 		}
-
-		// Update application status to IN_PROGRESS
-		await prisma.application.update({
-			where: { id: applicationId },
-			data: { status: 'IN_PROGRESS' },
-		});
 	} catch (error) {
 		console.error('Error assigning projects:', error);
 	}
@@ -312,8 +306,12 @@ export const getUserProjects: RequestHandler = async (
 			orderBy: { createdAt: 'asc' },
 		});
 
+		// Only return application id and user id, and the projects
 		res.json({
-			application,
+			application: {
+				id: application.id,
+				userId: application.userId,
+			},
 			projects,
 		});
 	} catch (err) {
@@ -377,6 +375,14 @@ export const submitProject: RequestHandler = async (
 				project: true,
 			},
 		});
+
+		// Check and update application status if needed
+		if (application.status === 'PENDING') {
+			await prisma.application.update({
+				where: { id: applicationId },
+				data: { status: 'IN_PROGRESS' },
+			});
+		}
 
 		res.json({
 			message: 'Project submitted successfully',
@@ -489,6 +495,34 @@ export const getApplicationWithProjects: RequestHandler = async (
 		}
 
 		res.json({ application });
+	} catch (err) {
+		next(err);
+	}
+};
+
+// Add a new controller for deleting an application
+export const deleteApplication: RequestHandler = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+): Promise<void> => {
+	try {
+		const userId = (req as any).user.id;
+		const { id } = req.params;
+		// Only allow deletion if application belongs to user and is not IN_PROGRESS or COMPLETED
+		const application = await prisma.application.findFirst({
+			where: {
+				id,
+				userId,
+				status: { in: ['PENDING'] },
+			},
+		});
+		if (!application) {
+			res.status(403).json({ error: 'Application cannot be deleted (not found or already in progress/completed).' });
+			return;
+		}
+		await prisma.application.delete({ where: { id } });
+		res.json({ message: 'Application deleted successfully.' });
 	} catch (err) {
 		next(err);
 	}
