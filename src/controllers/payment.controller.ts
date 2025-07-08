@@ -148,20 +148,23 @@ export const stripeWebhook: RequestHandler = async (
 					where: { gateway: 'STRIPE', gatewayPaymentId: paymentId },
 					data: { status: 'COMPLETED', metadata: session },
 				});
-				// 2. Update application status and set internship certificate
-				await tx.application.updateMany({
-					where: { id: applicationId },
-					data: {
-						isPaid: true,
-						status: 'COMPLETED',
-						hasInternshipCertificate: true
-					},
-				});
-				// 3. Fetch application and user
+				// 2. Update application status and set internship certificate if eligible
 				const application = await tx.application.findUnique({
 					where: { id: applicationId },
 				});
 				if (!application) throw new Error('Application not found');
+				const updateData: any = {
+					isPaid: true,
+					status: 'COMPLETED',
+				};
+				if (application.hasProjectCertificate) {
+					updateData.hasInternshipCertificate = true;
+				}
+				await tx.application.updateMany({
+					where: { id: applicationId },
+					data: updateData,
+				});
+				// 3. Fetch application and user
 				const user = await tx.user.findUnique({
 					where: { id: application.userId },
 				});
@@ -621,15 +624,24 @@ async function handleSuccessfulPayment(payment: any, event: any, orderId: string
 			},
 		});
 
-		// 2. Update application status
+		// 2. Update application status and set internship certificate if eligible
+		const application = await tx.application.findUnique({
+			where: { id: applicationId },
+		});
+		if (!application) throw new Error('Application not found');
+		const updateData: any = {
+			isPaid: true,
+			status: 'COMPLETED',
+		};
+		if (application.hasProjectCertificate) {
+			updateData.hasInternshipCertificate = true;
+		}
 		await tx.application.updateMany({
 			where: { id: applicationId },
-			data: { isPaid: true, status: 'IN_PROGRESS' },
+			data: updateData,
 		});
 
 		// 3. Fetch application and user
-		const application = await tx.application.findUnique({ where: { id: applicationId } });
-		if (!application) throw new Error('Application not found');
 		const user = await tx.user.findUnique({ where: { id: application.userId } });
 		if (!user) throw new Error('User not found');
 

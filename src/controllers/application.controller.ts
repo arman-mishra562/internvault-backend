@@ -6,6 +6,7 @@ import {
 	projectSubmissionSchema,
 	projectApprovalSchema,
 } from '../schemas/application.schema';
+import { getPointsForDifficulty, getTargetPointsForDuration } from '../utils/points';
 
 // Submit application form
 export const submitApplication: RequestHandler = async (
@@ -106,11 +107,24 @@ async function assignProjectsToApplication(applicationId: string, domain: string
 				domain: { equals: domain, mode: 'insensitive' },
 				role: { equals: role, mode: 'insensitive' },
 			},
-			take: duration, // Assign projects based on duration (1 month = 1 project)
 		});
 
+		// Group projects by difficulty
+		const grouped: { [key: string]: any } = {};
+		for (const project of projects) {
+			if (!grouped[project.difficulty]) {
+				grouped[project.difficulty] = project;
+			}
+		}
+
+		// Only one project per difficulty (EASY, NORMAL, HARD)
+		const selectedProjects = ['EASY', 'NORMAL', 'HARD']
+			.map(diff => grouped[diff])
+			.filter(Boolean)
+			.slice(0, 3); // Max three projects
+
 		// Create project assignments
-		const assignments = projects.map(project => ({
+		const assignments = selectedProjects.map(project => ({
 			applicationId,
 			projectId: project.id,
 		}));
@@ -408,7 +422,7 @@ export const approveProject: RequestHandler = async (
 
 		const adminId = (req as any).user.id;
 		const { applicationId, projectId } = req.params;
-		const { approved, points = 0 } = parse.data;
+		const { approved } = parse.data;
 
 		// Find the project assignment
 		const projectAssignment = await prisma.applicationProject.findFirst({
@@ -416,12 +430,16 @@ export const approveProject: RequestHandler = async (
 				applicationId,
 				projectId,
 			},
+			include: { project: true },
 		});
 
 		if (!projectAssignment) {
 			res.status(404).json({ error: 'Project assignment not found' });
 			return;
 		}
+
+		// Assign points based on difficulty if approved
+		const points = approved ? getPointsForDifficulty(projectAssignment.project.difficulty) : 0;
 
 		// Update project approval status
 		const updatedProject = await prisma.applicationProject.update({
@@ -432,26 +450,42 @@ export const approveProject: RequestHandler = async (
 				approved,
 				approvedAt: approved ? new Date() : null,
 				approvedBy: approved ? adminId : null,
-				points: approved ? points : 0,
+				points,
 			},
 			include: {
 				project: true,
 			},
 		});
 
-		// Check if all projects are approved and update application
+		// If approved, recalculate total approved points for the application
 		if (approved) {
-			const allProjects = await prisma.applicationProject.findMany({
-				where: { applicationId },
+			const approvedProjects = await prisma.applicationProject.findMany({
+				where: { applicationId, approved: true },
 			});
+			const totalPoints = approvedProjects.reduce((sum, p) => sum + (p.points || 0), 0);
 
-			const allApproved = allProjects.every(project => project.approved);
+			// Get application and target points
+			const application = await prisma.application.findUnique({ where: { id: applicationId } });
+			if (!application) {
+				res.status(404).json({ error: 'Application not found' });
+				return;
+			}
+			const targetPoints = getTargetPointsForDuration(application.duration);
 
-			if (allApproved) {
+			// If target points achieved, set hasProjectCertificate
+			if (!application.hasProjectCertificate && totalPoints >= targetPoints) {
 				await prisma.application.update({
 					where: { id: applicationId },
 					data: { hasProjectCertificate: true },
 				});
+
+				// If payment is completed, set hasInternshipCertificate
+				if (application.isPaid && !application.hasInternshipCertificate) {
+					await prisma.application.update({
+						where: { id: applicationId },
+						data: { hasInternshipCertificate: true },
+					});
+				}
 			}
 		}
 
